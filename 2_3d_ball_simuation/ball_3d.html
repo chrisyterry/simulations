@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html>
+    <!-- header stuff -->
+    <head>
+        <title>Ball 3D</title>
+        <style>
+        body {
+            font-family: Verdana;
+            font-size: 15px;
+        }
+        </style>
+    </head>
+
+    <!-- body stuff -->
+    <body>
+        <h1>Ball 3D</h1>
+        <!-- use div element instead of canvas -->
+        <div id="container"></div>
+
+        <!-- use three js to do 3D stuff https://threejs.org/ for examples
+        runs in any browser, based on Javascript -->
+
+        <!-- add threejs using these two lines: -->
+        <!-- original paths from video:
+        <script src="https://threejs.org/build/three.js"></script>
+        <script src="https://threejs.org/examples/js/controls/OrbitControls.js"></script>
+        -->
+        <!-- paths from source
+        <script src="https://unpkg.com/three@0.139.2/build/three.min.js"></script>
+		<script src="https://unpkg.com/three@0.139.2/examples/js/controls/OrbitControls.js"></script>
+        -->
+
+        <!-- as recommended by three.js https://threejs.org/manual/#en/fundamentals -->
+        <script async src="https://unpkg.com/es-module-shims@1.3.6/dist/es-module-shims.js"></script>
+        <script type="importmap">
+        {   
+            // "ES6" style module import, don't need THREE. prefixing orbit control when imported this way
+            "imports": {
+                "three": "https://unpkg.com/three@0.147.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.147.0/examples/jsm/"
+            }
+        }
+        </script>
+
+        <script type="module">
+            "use strict";
+
+            // import three and orbit controls
+            import * as THREE from 'three';
+            import {OrbitControls} from 'three/addons/controls/OrbitControls.js';  
+
+            // need these variables to work with threejs:
+            let three_scene; // 3D scene
+            let renderer; // Renderer
+            let camera; // Camera
+            let camera_controls; // Camera controls
+
+            // need a function to initialize the threejs library
+            function initializeThreeJSScene()
+            {
+                // Most of this apparently came from threejs examples
+                three_scene = new THREE.Scene();
+
+                // lights
+                three_scene.add( new THREE.AmbientLight(0x505050));
+                three_scene.fog = new THREE.Fog(0x000000, 0, 15);
+
+                // create new spot light
+                let spotlight = new THREE.SpotLight(0xffffff);
+                // set light settings
+                spotlight.angle = Math.PI/5;
+                spotlight.penumbra=0.2;
+                spotlight.position.set(2,3,3);
+                // set shadows for light(?)
+                spotlight.castShadow=true;
+                spotlight.shadow.camera.near=3;
+                spotlight.shadow.camera.far=10;
+                spotlight.shadow.mapSize.width=1024;
+                spotlight.shadow.mapSize.height=1024;
+                
+                // add the spotlight to the scene
+                three_scene.add(spotlight);
+
+                // create new directional light
+                let dir_light = new THREE.DirectionalLight(0x55505a, 1);
+                dir_light.position.set(0, 3, 0);
+                // add shadow(?)
+                dir_light.castShadow = true;
+                dir_light.shadow.camera.near = 1;
+                dir_light.shadow.camera.far = 10;
+                dir_light.shadow.camera.right = 1;
+                dir_light.shadow.camera.left = -1;
+                dir_light.shadow.camera.top = 1;
+                dir_light.shadow.camera.bottom = -1;
+                dir_light.shadow.mapSize.width = 1024;
+                dir_light.shadow.mapSize.height = 1024;
+                // add the light
+                three_scene.add(dir_light);
+
+                // ground plane
+                let ground = new THREE.Mesh(
+                    new THREE.PlaneGeometry(20, 20, 1, 1), // 20x20m plane
+                    new THREE.MeshPhongMaterial({color: 0xa0adaf, shininess: 150})
+                );
+                ground.rotation.x = -Math.PI/2; // rotate X-Y plane to become X-Z plane
+                ground.receiveShadow = true; // shadows are cast onto the ground
+                three_scene.add(ground);
+
+                // helper object for grid(?)
+                let helper = new THREE.GridHelper(20,20); // 20x20m grid
+                helper.material.opacity = 1.0;
+                helper.material.transparent = true;
+                helper.position.set(0, 0.002, 0);
+                // add the grid helper
+                three_scene.add(helper);
+
+                // Renderer
+                renderer = new THREE.WebGLRenderer();
+                // enable shadow map (?)
+                renderer.shadowMap.enabled = true;
+                // match the pixel ratio to the device
+                renderer.setPixelRatio(window.devicePixelRatio);
+                // set the renderer to be 0.8 x the width and height of the window
+                renderer.setSize(0.8* window.innerWidth, 0.8* window.innerHeight);
+                // handle window resizes
+                window.addEventListener('resize', onWindowResize, false);
+                // add the render to the dom tree
+                container.appendChild(renderer.domElement);
+
+                // Camera
+                camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 0.01, 100); // 70 deg FOV?
+                camera.position.set(0,1,4);
+                camera.updateMatrixWorld();
+
+                // add the camera to the scene
+                three_scene.add(camera)
+
+                // camera controls
+                camera_controls = new OrbitControls(camera, renderer.domElement);
+                camera_controls.zoomSpeed = 2.0;
+                camera_controls.panSpeed = 0.4;
+
+                // objects in scene (only tutorial-specific code here)
+                let sphereGeometry = new THREE.SphereGeometry(0.2, 32, 32); // create sphere mesh with 20cm radius, 32x32 resolution
+                let sphereMaterial = new THREE.MeshPhongMaterial({color: 0xff0000}); // red
+                let sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+                sphere.position.set(0.0, 1.0, 0.0);
+                three_scene.add(sphere);
+            }   
+
+            function onWindowResize() {
+                // set camera to display new window width and height
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                // update renderer with new window width and height
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            }
+
+            function simulate()
+            {
+
+            }
+            function update() {
+                simulate()
+                renderer.render(three_scene, camera); // render the scene to the camera
+                camera_controls.update(); // update the camera position based on the controls
+                
+                requestAnimationFrame(update);
+            }
+
+            initializeThreeJSScene(); // initialize the 3D graphics
+            update(); // start the simulation
+        </script>
+    </body>
+</html>
