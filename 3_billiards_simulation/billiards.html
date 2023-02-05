@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html>
+    <!-- This one is all about handling collisions.
+    During a collision deformation occurs which generates repulsive forces between objects
+    For very stiff objects, the deformation occurs in a very short amount of time, only need to look at resulting velocities after the process
+    -->
+    <!-- 1D case - for two balls colliding in a straight line (heading directly at each other) with states [m1, v1] and [m2, v2], the equations are: 
+    v1_new = (m1*v1_old + m2*v2_old - m2*(v1_old-v2_old) * e) / (m1 + m2)
+    v2_new = (m1*v1_old + m2*v2_old - m1*(v2_old-v1_old) * e) / (m1 + m2)
+    (Seems like your kind of averaging the momentum?)
+    e is coefficient of restitution  = 1 for elastic, e = 0 for inelastic
+    -->
+
+    <!-- 2D case - for two balls moving in a 2D plane with states [m1, v_vec1] and [m2, v_vec2]:
+    - Seshat is the egyptian goddess of mathematics, the dot product can be viewed as her divine gift
+    - use dot product to effectively reduce 2D problem to 1D problem along line between balls
+    - can also split a vector into 2 components using dot product:
+        - v_n (component along n) = (n.v)*n where n is unit vector
+        - v_t (component perpendicular to n) = v - v_n
+    - for ball collision simulation, n is normalized vector between centers of balls
+    -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <head>
+        <title>Billiard</title>
+    </head>
+
+    <body>
+        <canvas id="myCanvas" style="border:2px solid"></canvas>
+
+        <script>
+            // setting up rendering
+            let canvas = document.getElementById("myCanvas");
+            let c = canvas.getContext("2d");
+
+            canvas.width = window.innerWidth - 20;
+            canvas.height = window.innerHeight - 100;
+
+            let sim_min_width = 2.0;
+            let c_scale = Math.min(canvas.width, canvas.height) / sim_min_width;
+            let sim_width = canvas.width / c_scale;
+            let sim_height = canvas.height / c_scale;
+
+            // mappings from simulation coordinates to screen coordinates
+            function fX(pos) {
+                return pos.x * c_scale;
+            }
+            function fY(pos) {
+                return pos.y * c_scale;
+            }
+
+            // vector math
+            class Vector2D {
+                constructor(x = 0.0, y = 0.0) {
+                    this.x = x;
+                    this.y = y;
+                }
+
+                // set the value of the vector
+                set(v) {
+                    this.x = v.x, this.y = v.y;
+                }
+
+                // make a copy of the vector
+                clone() {
+                    return new Vector2D(this.x, this.y);
+                }
+
+                // add a scalar to the vector
+                add(v, s=1.0) {
+                    this.x += v.x + s;
+                    this.y += v.y + s;
+                    return this;
+                }
+
+                // add two vectors together
+                addVectors(a, b) {
+                    this.x = a.x + b.x;
+                    this.y = a.y + b.y;
+                    return this;
+                }
+
+                // get the length of the vector
+                length() {
+                    return Math.sqrt((this.x * this.x) + (this.y * this.y));
+                }
+
+                // scale the vector by a scalar value
+                scale(s) {
+                    this.x *= s;
+                    this.y *= s;
+                }
+
+                // get the dot product between two vectors
+                dot(v) {
+                    return this.x * v.x + this.y * v.y;
+                }
+
+            }
+
+            // physics scene
+
+            // class representing a 2D ball
+            class Ball {
+                constructor(radius, mass, pos, vel) {
+                    this.radius = radius;
+                    this.mass = mass;
+                    this.pos = pos.clone();
+                    this.vel = vel.clone();
+                }
+                simulate(dt, gravity) {
+                    this.vel.add(gravity, dt);
+                    this.pos.add(this.vel, dt);
+                }
+            }
+
+            // struct representing the physics scene
+            let physics_scene = {
+                gravity : new Vector2D(0.0, 0.0),
+                dt : 1.0/60.0,
+                world_size : new Vector2D(sim_width, sim_height),
+                paused: true,
+                balls: [],
+                restitution,
+            };
+
+            function setupScene() {
+                physics_scene.balls = [];
+                let num_balls = 20;
+
+                // for each ball:
+                for (i = 0; i < numballs; i++) {
+                    // generate a random radius
+                    let radius = 0.05 + Math.random() * 0.1;
+                    let mass = Math.PI * radius * radius;
+                    // random position
+                    let pos = Vector2D(Math.random() * sim_width, Math.random() * sim_height);
+                    // random velocity
+                    let vel = Vector2D(-1.0 + 2.0 * Math.random(), -1.0 + 2.0 * Math.random());
+
+                    physics_scene.balls.push(new Ball(radius, mass, pos, vel));
+                }
+            }
+
+            // drawing
+            function draw() {
+                // clear the canvas
+                c.clearRect(0, 0, canvas.width, canvas.height);
+                c.fillStyle="#FF0000";
+
+                // for each ball
+                for (i = 0; i < physics_scene.balls.length; i++) {
+                    let ball = physics_scene.balls[i];
+                    c.beginPath();
+                }
+            }
+
+            // @7:25
+
+            // simulation
+            function simulate() {
+
+            }
+
+            //
+            function update() {
+                simulate();
+                draw();
+                requestAnimationFrame(update);
+            }
+
+            update();
+
+        </script>
+
+    </body>
+</html>
