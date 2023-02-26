@@ -22,9 +22,39 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <head>
         <title>Billiard</title>
+        <style>
+            body {
+                font-family: verdana;
+                font-size: 15px;
+            }
+            .button {
+                background-color: #60606060;
+                border: none;
+                color: white;
+                padding: 10px 32px;
+                font-size: 16px;
+                margin: 4px 2px
+                cursor: pointer;
+            }
+            .slider {
+                -webkit-appearance: none;
+                width: 80px;
+                height: 6px;
+                border-radius: 5px;
+                background: #d3d3d3;
+                outline: none;
+                opacity: 0.7;
+                -webkit-transition: .2s;
+                transition: opacity .2s;
+            }
+        </style>
     </head>
 
     <body>
+        <button class="button" onclick="setupScene()">Restart</button>
+        <!-- Slider with range 0 - 10, gets divided by 10 to give input value -->
+        Restitution  <input type = "range" min = "0" max = "10" value = "10" id = "restitutionSlider" class = "slider">
+        <br>
         <canvas id="myCanvas" style="border:2px solid"></canvas>
 
         <script>
@@ -41,11 +71,11 @@
             let sim_height = canvas.height / c_scale;
 
             // mappings from simulation coordinates to screen coordinates
-            function fX(pos) {
+            function cX(pos) {
                 return pos.x * c_scale;
             }
-            function fY(pos) {
-                return pos.y * c_scale;
+            function cY(pos) {
+                return canvas.height - pos.y * c_scale;
             }
 
             // vector math
@@ -67,8 +97,8 @@
 
                 // add a scalar to the vector
                 add(v, s=1.0) {
-                    this.x += v.x + s;
-                    this.y += v.y + s;
+                    this.x += v.x * s;
+                    this.y += v.y * s;
                     return this;
                 }
 
@@ -76,6 +106,19 @@
                 addVectors(a, b) {
                     this.x = a.x + b.x;
                     this.y = a.y + b.y;
+                    return this;
+                }
+
+                // subtract a vector from the current vector with optional scaling
+                subtract(v, s=1.0) {
+                    this.x -= v.x * s;
+                    this.y -= v.y * s;
+                }
+
+                // subtract one vector from another
+                subtractVectors(a, b) {
+                    this.x = a.x - b.x;
+                    this.y = a.y - b.y;
                     return this;
                 }
 
@@ -120,7 +163,7 @@
                 world_size : new Vector2D(sim_width, sim_height),
                 paused: true,
                 balls: [],
-                restitution,
+                restitution : 1.0,
             };
 
             function setupScene() {
@@ -128,14 +171,14 @@
                 let num_balls = 20;
 
                 // for each ball:
-                for (i = 0; i < numballs; i++) {
+                for (i = 0; i < num_balls; i++) {
                     // generate a random radius
                     let radius = 0.05 + Math.random() * 0.1;
                     let mass = Math.PI * radius * radius;
                     // random position
-                    let pos = Vector2D(Math.random() * sim_width, Math.random() * sim_height);
+                    let pos = new Vector2D(Math.random() * sim_width, Math.random() * sim_height);
                     // random velocity
-                    let vel = Vector2D(-1.0 + 2.0 * Math.random(), -1.0 + 2.0 * Math.random());
+                    let vel = new Vector2D(-1.0 + 2.0 * Math.random(), -1.0 + 2.0 * Math.random());
 
                     physics_scene.balls.push(new Ball(radius, mass, pos, vel));
                 }
@@ -151,24 +194,114 @@
                 for (i = 0; i < physics_scene.balls.length; i++) {
                     let ball = physics_scene.balls[i];
                     c.beginPath();
+                    c.arc(
+                        cX(ball.pos), cY(ball.pos), c_scale * ball.radius, 0.0, 2.0*Math.PI
+                    );
+                    c.closePath();
+                    c.fill();
                 }
             }
 
-            // @7:25
+            // Collision handling
+
+            function handleBallCollision(ball1, ball2, restitution)
+            {
+                // get the direction vector from ball 1 to ball 2
+                let dir = new Vector2D()
+                dir.subtractVectors(ball2.pos, ball1.pos);
+                let d = dir.length();
+
+                // if the balls are not touching (or to avoid division by zero)
+                if (d == 0.0 || d > (ball1.radius + ball2.radius))
+                {
+                    return;
+                }
+
+                // get the unit vector between the balls
+                dir.scale(1.0/d);
+
+                // get the correction vector to put the balls just in contact
+                let corr = (ball1.radius + ball2.radius - d) / 2.0;
+                // move the balls to the required contact state
+                ball1.pos.add(dir, -corr);
+                ball2.pos.add(dir, corr);
+
+                // get the mass and velocity of each ball along the collision direction
+                let m1 = ball1.mass;
+                let v1 = ball1.vel.dot(dir);
+                let m2 = ball2.mass;
+                let v2 = ball2.vel.dot(dir);
+
+                // calculate the new ball velocities
+                let v1_new = (m1 * v1 + m2 * v2 - m2 * (v1 - v2) * restitution) / (m1 + m2);
+                let v2_new = (m1 * v1 + m2 * v2 - m1 * (v2 - v1) * restitution) / (m1 + m2);
+
+                // assign the new velocities
+                ball1.vel.add(dir, v1_new - v1);
+                ball2.vel.add(dir, v2_new - v2);
+            }
+
+            function handleWallCollision(ball, world_size)
+            {
+                // if the ball is beyond the left boundary
+                if (ball.pos.x < ball.radius) {
+                    ball.pos.x = ball.radius;
+                    ball.vel.x = -ball.vel.x;
+                }
+
+                // if the ball is beyond the right boundary
+                if (ball.pos.x > world_size.x - ball.radius) {
+                    ball.pos.x = world_size.x - ball.radius;
+                    ball.vel.x = -ball.vel.x;
+                }
+
+                // if the ball is beyond the bottom boundary
+                if (ball.pos.y < ball.radius) {
+                    ball.pos.y = ball.radius;
+                    ball.vel.y = -ball.vel.y;
+                }
+
+                // if the ball is beyond the top boundary
+                if (ball.pos.y > world_size.y - ball.radius) {
+                    ball.pos.y = world_size.y - ball.radius;
+                    ball.vel.y = -ball.vel.y;
+                }
+            }
 
             // simulation
             function simulate() {
+                // for each ball in the scene
+                for (i = 0; i < physics_scene.balls.length; i++) {
+                    let ball1 = physics_scene.balls[i];
+                    ball1.simulate(physics_scene.dt, physics_scene.gravity);
+                    // for each other ball in the scene (can speed this up using spatial hashing in a later tutorial)
+                    for (j = i + 1; j < physics_scene.balls.length; j++) {
+                        let ball2 = physics_scene.balls[j];
+                        // check for and handle collisions between the balls
+                        handleBallCollision(ball1, ball2, physics_scene.restitution);
+                    }
 
+                    // handle collisions between the ball and the wall
+                    handleWallCollision(ball1, physics_scene.world_size);
+                }
             }
 
-            //
+            // define the update function
             function update() {
                 simulate();
                 draw();
                 requestAnimationFrame(update);
             }
 
+            // setup the scene
+            setupScene();
+            // begin simulating
             update();
+
+            // set the callback for the slider to adjust the restitution coefficient
+            document.getElementById("restitutionSlider").oninput = function() {
+                physics_scene.restitution = this.value / 10.0;
+            }
 
         </script>
 
