@@ -1,0 +1,123 @@
+<!-- Some kind of ball simulation in a web browser-->
+
+<!DOCTYPE html>
+
+<html>
+
+    <head>
+        <title>ball simulation</title>
+    </head>
+
+    <body>
+
+        <canvas id="newCanvas" style="border:2px solid"></canvas>
+
+        <script>
+
+            // canvas has coordinate system in top left as per standard images
+
+             // Global canvas setup ------
+            "use strict";
+
+            // access the canvas
+            let canvas = document.getElementById("newCanvas");
+            // get 2D canvas
+            let c = canvas.getContext("2d");
+
+            // Set the canvas dimensions to fill page
+            canvas.width = window.innerWidth - 20;
+            canvas.height = window.innerHeight - 100;
+
+            // get the world dimensions for the simulation
+            let sim_min_width = 20.0;
+            let c_scale = Math.min(canvas.width, canvas.height) - sim_min_width;
+            let sim_width = canvas.width / c_scale;
+            let sim_height = canvas.height / c_scale;
+
+            // get x position in canvas units (pixels)
+            function cX(pos) { 
+                return pos.x * c_scale;
+            }
+
+            // get y position in canvas units (pixels)
+            function cY(pos) {
+                return canvas.height - pos.y * c_scale;
+            }
+
+            // Simulation scene ------
+
+            let gravity = {x: 0.0, y: -9.81};
+            let dt = 1.0/60.0;
+
+            // create a structure for the simulated ball
+            let ball = { 
+                radius : 0.02, // m
+                pos : {x : 0.2, y : 0.2}, // m in sim coordinates
+                vel : {x : 0.5, y : 0.05}, // m/s in sim coordinates
+            };
+
+            // Drawing function
+            function draw() {
+                // clear everything drawn on the canvas
+                c.clearRect(0, 0, canvas.width, canvas.height);
+                // set the fill style of the ball to be rendered
+                c.fillstyle = "#FF0000"; // red
+
+                // draw the ball:
+                c.beginPath();
+                // create a filled circle, kind of like
+                c.arc(cX(ball.pos), cY(ball.pos), c_scale * ball.radius, 0.0, 2.0 * Math.PI);
+                c.closePath();
+                c.fill();
+            }
+
+            // computing quantities at next timestep from current timestep is called time integration method
+
+            // simualtion function
+            function simulate() {
+                // use simplectic euler method
+                // assume velocity is constant for entire timestep which introduces a small error each step
+                // best way is to decrease the dt of your simulation
+                // more complex integrations or analytical methods are slow, intractible and dont improve performance
+
+                // can improve accuracy further by using substeps for each main timestep
+                    // you put any physics calculations within this substep loop and have any non-importnat calculations in the main loop
+                
+                // calculate derivatives in decreasing order for stability:
+                ball.vel.x += gravity.x * dt;
+                ball.vel.y += gravity.y * dt;
+                ball.pos.x += ball.vel.x * dt;
+                ball.pos.y += ball.vel.y * dt;
+
+                // if the ball would go beyond the x boundary:
+                if (ball.pos.x < 0.0) {
+                    ball.pos.x = 0.0;
+                    ball.vel.x = -ball.vel.x;
+                } else if (ball.pos.x > sim_width) {
+                    ball.pos.x = sim_width;
+                    ball.vel.x = -ball.vel.x;
+                }
+
+                // if the ball would go beyond the y boundary:
+                if (ball.pos.y < 0.0) {
+                    ball.pos.y = 0.0;
+                    ball.vel.y = -ball.vel.y;
+                }
+
+            }
+
+            // update function
+            function update() {
+                simulate();
+                draw();
+                requestAnimationFrame(update); // an underlying JS update function
+            }
+
+            // call the update function initially
+            update();
+
+        </script>
+
+    </body>
+
+</html>
